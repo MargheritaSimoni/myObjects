@@ -157,7 +157,7 @@ class Material:
       Z=-np.log(Transmission)/(self.macroscopicCrossSection(Energy, absorption, formulaunit)) #cm
       if help: print("thickness in cm to obtain given transmission")
       return Z
-    def save(self, method):
+    def save(self, method, E):
       s=str(method)
       method_name = lambda s: s[s.index('.') + 1 : s.index('(')] if '.' in s and '(' in s else None
       np.savetxt(f'{self.name}_{method_name(s)}.txt', np.column_stack((E*1000,eval(method))))   # !!!
