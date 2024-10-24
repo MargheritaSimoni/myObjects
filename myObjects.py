@@ -22,6 +22,7 @@ class Material:
         self.ncmat = ncmat
         self.functionalGroups = functionalGroups
         self.elements_dictionary=elements_dictionary
+        import NCrystal as NC
         if elements_dictionary==False:
           raise ValueError(f"Elements_dictionary needs to be given as an argument")
         """build ncmat file"""
