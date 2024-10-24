@@ -1,4 +1,10 @@
 
+import NCrystal as NC
+import numpy as np
+import math
+import matplotlib.pyplot as plt
+import matplotlib.colors as mplcolors
+
 """ELEMENT CLASS"""
 class Element:
   def __init__(self, name, mass, sigmaBound):
@@ -9,19 +15,6 @@ class Element:
     neutronMass=1.008664
     sigmaFree=self.sigmaBound/((1+(neutronMass/self.mass))**2)
     return sigmaFree
-
-from time import time
-print("Installing NCrystal...")
-t1 = time()
-!pip install ncrystal
-import NCrystal as NC
-import numpy as np
-import math
-import matplotlib.pyplot as plt
-import matplotlib.colors as mplcolors
-
-t2 = time()
-print("Installed in %.2f minutes" % ((t2-t1)/60.0))
 
 
 """MATERIAL CLASS"""
