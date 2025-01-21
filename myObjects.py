@@ -29,20 +29,7 @@ class Material:
         self.elements_dictionary=elements_dictionary
         if elements_dictionary==False:
           raise ValueError(f"Elements_dictionary needs to be given as an argument")
-        """build ncmat file"""
-        if ncmat=="AFGA":
-          if functionalGroups==None:
-            print("ERROR: When using AFGA model, functional groups must be declared!")
-          import subprocess
-          command = ['ncrystal_hfg2ncmat','--formula', formula,'--spec', functionalGroups,'--density', str(density),'--title', name,'-o', f'{name}.ncmat',"--force"]
-          creating_ncmat = subprocess.run(command, capture_output=True, text=True)
-          self.creating_ncmat= creating_ncmat
-          T=str(temperature)+"K"
-          fn = f'{name}.ncmat;temp='+T
-        else:
-          #print("WARNING: Density and temperature may be defined differently inside NCrystal .ncmat file")
-          fn=ncmat
-        self.fn=fn
+        
         """Define material stoichiometry from formula"""
          #______________________________________________#
         def define_Stoichiometry(formula):
@@ -67,11 +54,38 @@ class Material:
         for el in self.elements:
           if el not in self.elements_dictionary: raise ValueError(f"Element {el} not found in elements_dictionary")
 
+        """build ncmat file"""
+        if ncmat=="AFGA":
+          if functionalGroups==None:
+            print("ERROR: When using AFGA model, functional groups must be declared!")
+          import subprocess
+          command = ['ncrystal_hfg2ncmat','--formula', formula,'--spec', functionalGroups,'--density', str(density),'--title', name,'-o', f'{name}.ncmat',"--force"]
+          creating_ncmat = subprocess.run(command, capture_output=True, text=True)
+          self.creating_ncmat= creating_ncmat
+          T=str(temperature)+"K"
+          fn = f'{name}.ncmat;temp='+T
+        elif ncmat=="FreeGas":
+          T=str(temperature)+"K"
+          #fn=f'freegas::'+formula+'/'+str(density)+'gcm3/;temp='+T ######################################################################################### mat1 = NC.createScatter('free_O2.ncmat')
+          for el in self.elements:
+            c=NC.NCMATComposer(f'freegas::{el}/0.001gcm3/;temp={T}')
+            a = c.write(f'free_{el}.ncmat')
+            fn="There is an fn for each element, sum is handled inside cross section method"
+        else:
+          #print("WARNING: Density and temperature may be defined differently inside NCrystal .ncmat file")
+          fn=ncmat
+        self.fn=fn
+
         """SIGMAFREE OF MATERIAL"""
         SigmaFree=0.
         for el, stoy in zip(self.elements, self.stoichiometry):
           SigmaFree+=elements_dictionary[el].sigmaFree()*stoy
         self.sigmaFree=SigmaFree
+        """SIGMABOUND OF MATERIAL"""
+        SigmaBound=0.
+        for el, stoy in zip(self.elements, self.stoichiometry):
+          SigmaBound+=elements_dictionary[el].sigmaBound*stoy
+        self.sigmaBound=SigmaBound
         """MASS OF MATERIAL"""
         mass=0.
         for el, stoy in zip(self.elements, self.stoichiometry):
@@ -84,6 +98,8 @@ class Material:
     def __str__(self):
         if self.ncmat=="AFGA":
           return f"\n_____________________\nMATERIAL PROPERTIES:\n_____________________\n name={self.name} \n formula={self.formula} \n density={self.density} \n functionalGroups={self.functionalGroups} \n temperature={self.temperature}\n\n This material was created using the Average functional group approximation (AFGA):\n {self.creating_ncmat.stdout}\n {self.creating_ncmat.stderr}\n"
+        elif self.ncmat=="FreeGas":
+          return f"\n_____________________\nMATERIAL PROPERTIES:\n_____________________\n name={self.name}\n formula={self.formula}\n density={self.density}\n ncmat={self.ncmat}\n temperature={self.temperature}\n\n This material was created using NCrystal FreeGas\n"
         else:
           return f"\n_____________________\nMATERIAL PROPERTIES:\n_____________________\n name={self.name}\n formula={self.formula}\n density={self.density}\n ncmat={self.ncmat}\n temperature={self.temperature}\n\n This material was created using NCrystal libraries\n WARNING: Density and temperature may be defined differently inside NCrystal .ncmat file\n"
 
@@ -91,22 +107,29 @@ class Material:
     """MICROSCOPIC CROSS SECTION OF MATERIAL"""
      #________________________________________#
     def crossSection(self, E, absorption=True, formulaunit=True, plot=False, help=False):
-      pc = NC.createScatter(self.fn)
-      xs = pc.crossSectionNonOriented(E)
-      if absorption:
-        absorption = NC.createAbsorption(self.fn)
-        xs += absorption.crossSectionNonOriented(E)
-      if formulaunit:
-        xs=xs*sum(self.stoichiometry)
-      if plot:
-        plt.xscale("log")
-        plt.xlabel('Energy [eV]', fontsize="x-large")
-        plt.ylabel(' cross section (Barn/formulaunit)', fontsize="x-large")
-        plt.grid()
-        plt.plot(E, xs, label=self.name)
-        plt.legend(fontsize="x-large")
-        plt.show()
-      if help: print("microscopicCrossSection in Barn/formulaunit as a function of energy in eV")
+      if self.ncmat!="FreeGas":
+        pc = NC.createScatter(self.fn)
+        xs = pc.crossSectionNonOriented(E)
+        if absorption:
+          absorption = NC.createAbsorption(self.fn)
+          xs += absorption.crossSectionNonOriented(E)
+        if formulaunit:
+          xs=xs*sum(self.stoichiometry)
+        if plot:
+          plt.xscale("log")
+          plt.xlabel('Energy [eV]', fontsize="x-large")
+          plt.ylabel(' cross section (Barn/formulaunit)', fontsize="x-large")
+          plt.grid()
+          plt.plot(E, xs, label=self.name)
+          plt.legend(fontsize="x-large")
+          plt.show()
+        if help: print("microscopicCrossSection in Barn/formulaunit as a function of energy in eV")
+      if self.ncmat=="FreeGas":
+        xs=0.
+        for el, stoy in zip(self.elements, self.stoichiometry):
+          mat = NC.createScatter(f'free_{el}.ncmat')
+          el_xs = mat.crossSectionNonOriented(E)
+          xs+=el_xs*stoy
       return xs
     """MASS ATTENUATION COEFFICIENT (SIGMA/RHO) OF MATERIAL"""
      #_________________________________________________________#
@@ -211,4 +234,3 @@ class Compound(Material):
         plt.show()
       if help: print("microscopicCrossSection in Barn/formulaunit as a function of energy in eV")
       return xs
-
