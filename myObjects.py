@@ -73,7 +73,8 @@ class Material:
             fn="There is an fn for each element, sum is handled inside cross section method"
         else:
           #print("WARNING: Density and temperature may be defined differently inside NCrystal .ncmat file")
-          fn=ncmat
+          addT=f";temp=+{T}"
+          fn=ncmat+addT
         self.fn=fn
 
         """SIGMAFREE OF MATERIAL"""
