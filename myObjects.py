@@ -109,10 +109,10 @@ class Material:
     def crossSection(self, E, absorption=True, formulaunit=True, plot=False, help=False):
       if self.ncmat!="FreeGas":
         pc = NC.createScatter(self.fn)
-        xs = pc.crossSectionNonOriented(E)
+        xs = pc.crossSectionIsotropic(E)
         if absorption:
           absorption = NC.createAbsorption(self.fn)
-          xs += absorption.crossSectionNonOriented(E)
+          xs += absorption.crossSectionIsotropic(E)
         if formulaunit:
           xs=xs*sum(self.stoichiometry)
         if plot:
@@ -128,7 +128,7 @@ class Material:
         xs=0.
         for el, stoy in zip(self.elements, self.stoichiometry):
           mat = NC.createScatter(f'free_{el}.ncmat')
-          el_xs = mat.crossSectionNonOriented(E)
+          el_xs = mat.crossSectionIsotropic(E)
           xs+=el_xs*stoy
       return xs
     """MASS ATTENUATION COEFFICIENT (SIGMA/RHO) OF MATERIAL"""
