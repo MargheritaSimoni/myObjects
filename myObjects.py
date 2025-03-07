@@ -154,7 +154,7 @@ class Material:
        if plot:
           plt.xscale("log")
           plt.xlabel('Energy [eV]', fontsize="x-large")
-          plt.ylabel('Σ (cm2)', fontsize="x-large")
+          plt.ylabel('Σ (cm^-1)', fontsize="x-large")
           plt.grid()
           plt.plot(E, macroscopicCrossSection, label=self.name)
           plt.legend(fontsize="x-large")
