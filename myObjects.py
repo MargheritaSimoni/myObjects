@@ -19,12 +19,13 @@ class Element:
 
 """MATERIAL CLASS"""
 class Material:
-    def __init__(self, name, formula, density, ncmat="AFGA", functionalGroups=None, temperature=293.6, elements_dictionary=False):
+    def __init__(self, name, formula, density, ncmat="AFGA", cif_code=None, functionalGroups=None, temperature=293.6, elements_dictionary=False):
         self.name = name
         self.formula = formula
         self.density = density
         self.temperature = temperature
         self.ncmat = ncmat
+        self.cif_code = cif_code
         self.functionalGroups = functionalGroups
         self.elements_dictionary=elements_dictionary
         if elements_dictionary==False:
@@ -71,6 +72,13 @@ class Material:
             c=NC.NCMATComposer(f'freegas::{el}/0.001gcm3/;temp={T}')
             a = c.write(f'free_{el}.ncmat')
             fn="There is an fn for each element, sum is handled inside cross section method"
+        elif ncmat=="CIF":
+          if cif_code==None:
+            raise ValueError(f"CIF code needs to be given as an argument, as a string: cif_code='codid::1000467'")
+          cif_mat = NC.NCMATComposer(cif_code)
+          a = cif_mat.write(f'{name}.ncmat')
+          T=str(temperature)+"K"
+          fn = f'{name}.ncmat;temp='+T
         else:
           #print("WARNING: Density and temperature may be defined differently inside NCrystal .ncmat file")
           addT=f";temp=+{self.temperature}"
@@ -101,6 +109,9 @@ class Material:
           return f"\n_____________________\nMATERIAL PROPERTIES:\n_____________________\n name={self.name} \n formula={self.formula} \n density={self.density} \n functionalGroups={self.functionalGroups} \n temperature={self.temperature}\n\n This material was created using the Average functional group approximation (AFGA):\n {self.creating_ncmat.stdout}\n {self.creating_ncmat.stderr}\n"
         elif self.ncmat=="FreeGas":
           return f"\n_____________________\nMATERIAL PROPERTIES:\n_____________________\n name={self.name}\n formula={self.formula}\n density={self.density}\n ncmat={self.ncmat}\n temperature={self.temperature}\n\n This material was created using NCrystal FreeGas\n"
+        elif self.ncmat=="CIF":
+          return f"\n_____________________\nMATERIAL PROPERTIES:\n_____________________\n name={self.name}\n formula={self.formula}\n density={self.density}\n ncmat={self.ncmat}\n temperature={self.temperature}\n\n This material was created from CIF file with code {self.cif_code}\n"
+      
         else:
           return f"\n_____________________\nMATERIAL PROPERTIES:\n_____________________\n name={self.name}\n formula={self.formula}\n density={self.density}\n ncmat={self.ncmat}\n temperature={self.temperature}\n\n This material was created using NCrystal libraries\n WARNING: Density and temperature may be defined differently inside NCrystal .ncmat file\n"
 
