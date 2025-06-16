@@ -1,4 +1,3 @@
-
 import NCrystal as NC
 import numpy as np
 import math
@@ -119,7 +118,7 @@ class Material:
     """MICROSCOPIC CROSS SECTION OF MATERIAL"""
      #________________________________________#
     def crossSection(self, E, absorption=True, formulaunit=True, plot=False, help=False):
-      if self.ncmat!="FreeGas":
+      if self.ncmat != "FreeGas":
         pc = NC.createScatter(self.fn)
         xs = pc.crossSectionIsotropic(E)
         if absorption:
@@ -136,7 +135,7 @@ class Material:
           plt.legend(fontsize="x-large")
           plt.show()
         if help: print("microscopicCrossSection in Barn/formulaunit as a function of energy in eV")
-      if self.ncmat=="FreeGas":
+      if self.ncmat == "FreeGas":
         xs=0.
         for el, stoy in zip(self.elements, self.stoichiometry):
           mat = NC.createScatter(f'free_{el}.ncmat')
@@ -174,8 +173,10 @@ class Material:
        return macroscopicCrossSection
     """TRANSMISSION OF MATERIAL"""
      #______________________________#
-    def transmission(self, E, thickness, absorption=True, formulaunit=True, plot=False, help=False):
-        T=np.exp(-self.macroscopicCrossSection(E, absorption, formulaunit)*thickness)*100
+    def transmission(self, E, thickness, percentage=True, absorption=True, formulaunit=True, plot=False, help=False):
+        T=np.exp(-self.macroscopicCrossSection(E, absorption, formulaunit)*thickness)
+        if percentage:
+          T*=100
         if plot:
           plt.xscale("log")
           plt.xlabel('Energy [eV]', fontsize="x-large")
@@ -203,39 +204,71 @@ class Material:
 
 """ Compounds Class"""
 class Compound(Material):
-    def __init__(self, name, list_of_materials, list_of_weights, density, temperature=293.6, stoichiometry_type="n_of_molecules"):
+    def __init__(self, name, compound_density, dictionary_of_materials,  dictionary_of_weights, weight_type=None, temperature=293.6):
         print("This class is not finished!!! do not use")
         self.name = name
-        formula = ""
-        for mat, weight in zip(list_of_materials, list_of_weights):
-            formula += mat.formula + str(weight)
-        self.formula = formula
-        self.density = density
+        self.compound_density = compound_density
         self.temperature = temperature
-        self.list_of_materials = list_of_materials
-        self.stoichiometry = stoichiometry_type
-        self.list_of_weights = list_of_weights
-        SigmaFree=0.
-        for mat, weight in zip(self.list_of_materials, self.list_of_weights):
-          SigmaFree+=mat.sigmaFree*weight
-        self.sigmaFree=SigmaFree
-        mass=0.
-        for mat, weight in zip(self.list_of_materials, self.list_of_weights):
-            mass+=mat.mass*weight
-        self.mass=mass
+        self.dictionary_of_materials = dictionary_of_materials
+        self.dictionary_of_weights = dictionary_of_weights
+        self.weight_type = weight_type
+        # formula = ""
+        # for mat, weight in zip(dictionary_of_materials, dictionary_of_weights):
+        #     formula += mat.formula + str(weight)
+        # self.formula = formula
+        # SigmaFree=0.
+        # for mat, weight in zip(self.list_of_materials, self.list_of_weights):
+        #   SigmaFree+=mat.sigmaFree*weight
+        # self.sigmaFree=SigmaFree
+        # mass=0.
+        # for mat, weight in zip(self.list_of_materials, self.list_of_weights):
+        #     mass+=mat.mass*weight
+        # self.mass=mass
+        self.stoichiometric_weights={}
+        self.compute_stoichiometric_weights() #method
+        total = sum(self.stoichiometric_weights.values())
+        for key in self.stoichiometric_weights:
+            self.stoichiometric_weights[key] /= total
+        self.sigmaFree=0.
+        for name, mat in self.dictionary_of_materials.items():
+          print(mat)
+          self.sigmaFree+=mat.sigmaFree*self.stoichiometric_weights[name]
+        self.mass=0.
+        for name, mat in self.dictionary_of_materials.items():
+          self.mass+=mat.mass*self.stoichiometric_weights[name]
 
-        if stoichiometry_type == "n_of_molecules":
-            print("WARNING: list of weights defines the number of molecules, mass percentage can be defined instead by setting stoichiometry_type to 'mass_percentage'")
+     # call method inside constructor
+    def compute_stoichiometric_weights(self):
+        print("WARNING: default weight type is molar, other settings include: \n weight_type='mass_percentage' \n weight_type='mass_grams'")
+        if self.weight_type == "molar":
+          self.stoichiometric_weights=self.dictionary_of_weights
+        elif self.weight_type == "mass_percentage":
+          if sum(self.dictionary_of_weights.values())!=100:
+            if sum(self.dictionary_of_weights.values())==1:
+              for key in self.dictionary_of_weights:
+                self.dictionary_of_weights[key] *= 100
+            else: raise ValueError(f"Sum of weights must be 100, not {sum(self.dictionary_of_weights.values())}")
+          for mat_name,mat in self.dictionary_of_materials.items():
+            self.stoichiometric_weights[mat_name]=self.dictionary_of_weights[mat_name]/mat.mass
+        elif self.weight_type == "mass_grams":
+          total_mass_g = sum(self.dictionary_of_weights.values())
+          for mat_name,mat in self.dictionary_of_materials.items():
+            self.stoichiometric_weights[mat_name]=self.dictionary_of_weights[mat_name]/total_mass_g*100/mat.mass
+        else:
+          raise ValueError(f"Weight type {self.weight_type} not recognized. \n Possible weight types include: \n weight_type='molar' \n weight_type='mass_percentage' \n weight_type='mass_grams'")
 
     """END OF CONSTRUCTOR"""
 
     def __str__(self):
-        return f"\n_____________________\nCOMPOUND PROPERTIES:\n_____________________\n list_of_materials={self.list_of_materials} \n list_of_weights={self.list_of_weights} \n stoichiometry_type={self.stoichiometry_type}\n"
+        return f"\n_____________________\nCOMPOUND PROPERTIES:\n_____________________\n list_of_materials={self.dictionary_of_materials.keys()} \n list_of_weights={self.dictionary_of_weights} \n weight_type={self.weight_type}\n"
 
     def crossSection(self, E, absorption=True, formulaunit=True, plot=False, help=False):
       xs=0.
-      for mat, weight in zip(self.list_of_materials, self.list_of_weights):
-        xs+= mat.crossSection(E, absorption, formulaunit, plot, help)*weight
+      for name, mat in self.dictionary_of_materials.items():
+        xs+= mat.crossSection(E, absorption, True, False, False)*self.stoichiometric_weights[name]
+
+      if formulaunit==False:
+        xs=xs/self.sigmaFree
       if plot:
         plt.xscale("log")
         plt.xlabel('Energy [eV]', fontsize="x-large")
@@ -244,5 +277,62 @@ class Compound(Material):
         plt.plot(E, xs, label=self.name)
         plt.legend(fontsize="x-large")
         plt.show()
-      if help: print("microscopicCrossSection in Barn/formulaunit as a function of energy in eV")
+      if help: print("Stoichiometric ratios of compound are normalized to 1. microscopicCrossSection in Barn/formulaunit as a function of energy in eV")
       return xs
+
+      """MASS ATTENUATION COEFFICIENT (SIGMA/RHO) OF COMPOUND"""
+     #_________________________________________________________#
+    def massAttenuationCoefficient(self, E, absorption=True, formulaunit=True, plot=False, help=False):
+        Na=0.602214076 
+        massAttenuationCoefficient=self.crossSection(E, absorption, formulaunit)*Na/(self.mass)
+        if plot:
+          plt.xscale("log")
+          plt.xlabel('Energy [eV]', fontsize="x-large")
+          plt.ylabel('Σ/ρ (cm2/g)', fontsize="x-large")
+          plt.grid()
+          plt.plot(E, massAttenuationCoefficient, label=self.name)
+          plt.legend(fontsize="x-large")
+          plt.show()
+        if help: print("massAttenuationCoefficient in cm2/g as a function of energy in eV")
+        return massAttenuationCoefficient
+
+    """MACROSCOPIC CROSS SECTION OF COMPOUND"""
+
+    def macroscopicCrossSection(self, E, absorption=True, formulaunit=True, plot=False, help=False):
+       Na=0.602214076
+       macroscopicCrossSection=self.crossSection(E, absorption, formulaunit)*Na/(self.mass)*self.compound_density
+       if plot:
+          plt.xscale("log")
+          plt.xlabel('Energy [eV]', fontsize="x-large")
+          plt.ylabel('Σ (cm^-1)', fontsize="x-large")
+          plt.grid()
+          plt.plot(E, macroscopicCrossSection, label=self.name)
+          plt.legend(fontsize="x-large")
+          plt.show()
+       if help: print("macroscopicCrossSection in cm^2 as a function of energy in eV")
+       return macroscopicCrossSection
+
+    """TRANSMISSION OF COMPOUND"""
+     #______________________________#
+    def transmission(self, E, thickness, percentage=True, absorption=True, formulaunit=True, plot=False, help=False):
+        Na=0.602214076
+        T=np.exp(-self.crossSection(E, absorption, formulaunit)*Na/(self.mass)*self.compound_density*thickness)
+        if percentage:
+          T*=100
+        if plot:
+          plt.xscale("log")
+          plt.xlabel('Energy [eV]', fontsize="x-large")
+          plt.ylabel('Transmission (%)', fontsize="x-large")
+          plt.grid()
+          plt.plot(E, T, label=self.name)
+          plt.legend(fontsize="x-large")
+          plt.show()
+        if help: print("Transmission in % as a function of energy in eV")
+        return T
+
+        """THICKNESS OF COMPOUND"""
+        #______________________________#
+    def findMyThickness(self, Transmission, Energy=1000, absorption=True, formulaunit=True, help=False):
+      Z=-np.log(Transmission)/(self.macroscopicCrossSection(Energy, absorption, formulaunit)) #cm
+      if help: print("thickness in cm to obtain given transmission")
+      return Z
