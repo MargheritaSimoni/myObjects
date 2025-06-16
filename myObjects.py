@@ -18,7 +18,7 @@ class Element:
 
 """MATERIAL CLASS"""
 class Material:
-    def __init__(self, name, formula, density, ncmat="AFGA", cif_code=None, functionalGroups=None, temperature=293.6, elements_dictionary=False):
+    def __init__(self, name, formula, density, ncmat="AFGA", cif_code=None, functionalGroups=None, temperature=293.6, elements_dictionary=None):
         self.name = name
         self.formula = formula
         self.density = density
@@ -27,62 +27,15 @@ class Material:
         self.cif_code = cif_code
         self.functionalGroups = functionalGroups
         self.elements_dictionary=elements_dictionary
-        if elements_dictionary==False:
+        if not elements_dictionary:
           raise ValueError(f"Elements_dictionary needs to be given as an argument")
-        
-        """Define material stoichiometry from formula"""
-         #______________________________________________#
-        def define_Stoichiometry(formula):
-          import re
-          #Regular expression pattern to match elements and their quantities
-          pattern = r'([A-Z][a-z]?)(\d*)'
-          # Find all matches in the formula string
-          matches = re.findall(pattern, formula)
-          elements = []
-          stoichiometry = []
-          for (element, pedice) in matches:
-              elements.append(element)
-              # If the quantity is an empty string, it means there is only one atom of that element
-              if pedice == '':
-                  stoichiometry.append(1)
-              else:
-                  stoichiometry.append(int(pedice))
-          return elements, stoichiometry
-        elements, stoichiometry = define_Stoichiometry(formula)
+        elements, stoichiometry = self.define_Stoichiometry(formula)
         self.elements= elements
         self.stoichiometry =stoichiometry
         for el in self.elements:
           if el not in self.elements_dictionary: raise ValueError(f"Element {el} not found in elements_dictionary")
 
-        """build ncmat file"""
-        if ncmat=="AFGA":
-          if functionalGroups==None:
-            print("ERROR: When using AFGA model, functional groups must be declared!")
-          import subprocess
-          command = ['ncrystal_hfg2ncmat','--formula', formula,'--spec', functionalGroups,'--density', str(density),'--title', name,'-o', f'{name}.ncmat',"--force"]
-          creating_ncmat = subprocess.run(command, capture_output=True, text=True)
-          self.creating_ncmat= creating_ncmat
-          T=str(temperature)+"K"
-          fn = f'{name}.ncmat;temp='+T
-        elif ncmat=="FreeGas":
-          T=str(temperature)+"K"
-          #fn=f'freegas::'+formula+'/'+str(density)+'gcm3/;temp='+T ######################################################################################### mat1 = NC.createScatter('free_O2.ncmat')
-          for el in self.elements:
-            c=NC.NCMATComposer(f'freegas::{el}/0.001gcm3/;temp={T}')
-            a = c.write(f'free_{el}.ncmat')
-            fn="There is an fn for each element, sum is handled inside cross section method"
-        elif ncmat=="CIF":
-          if cif_code==None:
-            raise ValueError(f"CIF code needs to be given as an argument, as a string: cif_code='codid::1000467'")
-          cif_mat = NC.NCMATComposer(cif_code)
-          a = cif_mat.write(f'{name}.ncmat')
-          T=str(temperature)+"K"
-          fn = f'{name}.ncmat;temp='+T
-        else:
-          #print("WARNING: Density and temperature may be defined differently inside NCrystal .ncmat file")
-          addT=f";temp=+{self.temperature}"
-          fn=ncmat+addT
-        self.fn=fn
+        self.generate_ncmat()
 
         """SIGMAFREE OF MATERIAL"""
         SigmaFree=0.
@@ -100,6 +53,57 @@ class Material:
             mass+=elements_dictionary[el].mass*stoy
         self.mass=mass
 
+    """CONSTRUCTOR METHODS"""
+            
+    """Define material stoichiometry from formula"""
+    #______________________________________________#
+    def define_Stoichiometry(self,formula):
+              import re
+              #Regular expression pattern to match elements and their quantities
+              pattern = r'([A-Z][a-z]?)(\d*)'
+              # Find all matches in the formula string
+              matches = re.findall(pattern, formula)
+              elements = []
+              stoichiometry = []
+              for (element, pedice) in matches:
+                  elements.append(element)
+                  # If the quantity is an empty string, it means there is only one atom of that element
+                  if pedice == '':
+                      stoichiometry.append(1)
+                  else:
+                      stoichiometry.append(int(pedice))
+              return elements, stoichiometry
+
+    """build ncmat file"""
+    def generate_ncmat(self):
+          if self.ncmat=="AFGA":
+            if self.functionalGroups==None:
+              print("ERROR: When using AFGA model, functional groups must be declared!")
+            import subprocess
+            command = ['ncrystal_hfg2ncmat','--formula', self.formula,'--spec', self.functionalGroups,'--density', str(self.density),'--title', self.name,'-o', f'{self.name}.ncmat',"--force"]
+            creating_ncmat = subprocess.run(command, capture_output=True, text=True)
+            self.creating_ncmat= creating_ncmat
+            T=str(self.temperature)+"K"
+            fn = f'{self.name}.ncmat;temp='+T
+          elif self.ncmat=="FreeGas":
+            T=str(self.temperature)+"K"
+            #fn=f'freegas::'+formula+'/'+str(density)+'gcm3/;temp='+T ######################################################################################### mat1 = NC.createScatter('free_O2.ncmat')
+            for el in self.elements:
+              c=NC.NCMATComposer(f'freegas::{el}/0.001gcm3/;temp={T}')
+              a = c.write(f'free_{el}.ncmat')
+              fn="There is an fn for each element, sum is handled inside cross section method"
+          elif self.ncmat=="CIF":
+            if self.cif_code==None:
+              raise ValueError(f"CIF code needs to be given as an argument, as a string: cif_code='codid::1000467'")
+            cif_mat = NC.NCMATComposer(self.cif_code)
+            a = cif_mat.write(f'{self.name}.ncmat')
+            T=str(self.temperature)+"K"
+            fn = f'{self.name}.ncmat;temp='+T
+          else:
+            #print("WARNING: Density and temperature may be defined differently inside NCrystal .ncmat file")
+            addT=f";temp=+{self.temperature}"
+            fn=self.ncmat+addT
+          self.fn=fn
 
     """END OF CONSTRUCTOR"""
     #______________________________#
@@ -203,27 +207,14 @@ class Material:
 
 
 """ Compounds Class"""
-class Compound(Material):
+class Compound():
     def __init__(self, name, compound_density, dictionary_of_materials,  dictionary_of_weights, weight_type=None, temperature=293.6):
-        print("This class is not finished!!! do not use")
         self.name = name
         self.compound_density = compound_density
         self.temperature = temperature
         self.dictionary_of_materials = dictionary_of_materials
         self.dictionary_of_weights = dictionary_of_weights
         self.weight_type = weight_type
-        # formula = ""
-        # for mat, weight in zip(dictionary_of_materials, dictionary_of_weights):
-        #     formula += mat.formula + str(weight)
-        # self.formula = formula
-        # SigmaFree=0.
-        # for mat, weight in zip(self.list_of_materials, self.list_of_weights):
-        #   SigmaFree+=mat.sigmaFree*weight
-        # self.sigmaFree=SigmaFree
-        # mass=0.
-        # for mat, weight in zip(self.list_of_materials, self.list_of_weights):
-        #     mass+=mat.mass*weight
-        # self.mass=mass
         self.stoichiometric_weights={}
         self.compute_stoichiometric_weights() #method
         total = sum(self.stoichiometric_weights.values())
@@ -239,7 +230,6 @@ class Compound(Material):
 
      # call method inside constructor
     def compute_stoichiometric_weights(self):
-        print("WARNING: default weight type is molar, other settings include: \n weight_type='mass_percentage' \n weight_type='mass_grams'")
         if self.weight_type == "molar":
           self.stoichiometric_weights=self.dictionary_of_weights
         elif self.weight_type == "mass_percentage":
