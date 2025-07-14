@@ -140,12 +140,18 @@ class Material:
           plt.show()
         if help: print("microscopicCrossSection in Barn/formulaunit as a function of energy in eV")
       if self.ncmat == "FreeGas":
-        xs=0.
-        for el, stoy in zip(self.elements, self.stoichiometry):
-          mat = NC.createScatter(f'free_{el}.ncmat')
-          el_xs = mat.crossSectionIsotropic(E)
-          xs+=el_xs*stoy
-      return xs
+    xs = 0.
+    for el, stoy in zip(self.elements, self.stoichiometry):
+        scatter_mat = NC.createScatter(f'free_{el}.ncmat')
+        absorb_mat = NC.createAbsorption(f'free_{el}.ncmat')  # Assuming this exists
+        
+        scatter_xs = scatter_mat.crossSectionIsotropic(E)
+        absorb_xs = absorb_mat.crossSectionIsotropic(E)
+        
+        total_xs = scatter_xs + absorb_xs
+        xs += total_xs * stoy
+    return xs
+
     """MASS ATTENUATION COEFFICIENT (SIGMA/RHO) OF MATERIAL"""
      #_________________________________________________________#
     def massAttenuationCoefficient(self, E, absorption=True, formulaunit=True, plot=False, help=False):
