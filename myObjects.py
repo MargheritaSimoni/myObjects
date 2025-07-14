@@ -1,3 +1,8 @@
+# !rm -rf myObjects  # This will remove the existing directory and all its contents
+# !git clone https://github.com/MargheritaSimoni/myObjects.git
+# from myObjects.myObjects import *
+
+
 import NCrystal as NC
 import numpy as np
 import math
@@ -54,7 +59,7 @@ class Material:
         self.mass=mass
 
     """CONSTRUCTOR METHODS"""
-            
+
     """Define material stoichiometry from formula"""
     #______________________________________________#
     def define_Stoichiometry(self,formula):
@@ -114,7 +119,7 @@ class Material:
           return f"\n_____________________\nMATERIAL PROPERTIES:\n_____________________\n name={self.name}\n formula={self.formula}\n density={self.density}\n ncmat={self.ncmat}\n temperature={self.temperature}\n\n This material was created using NCrystal FreeGas\n"
         elif self.ncmat=="CIF":
           return f"\n_____________________\nMATERIAL PROPERTIES:\n_____________________\n name={self.name}\n formula={self.formula}\n density={self.density}\n ncmat={self.ncmat}\n temperature={self.temperature}\n\n This material was created from CIF file with code {self.cif_code}\n"
-      
+
         else:
           return f"\n_____________________\nMATERIAL PROPERTIES:\n_____________________\n name={self.name}\n formula={self.formula}\n density={self.density}\n ncmat={self.ncmat}\n temperature={self.temperature}\n\n This material was created using NCrystal libraries\n WARNING: Density and temperature may be defined differently inside NCrystal .ncmat file\n"
 
@@ -139,15 +144,16 @@ class Material:
           plt.legend(fontsize="x-large")
           plt.show()
         if help: print("microscopicCrossSection in Barn/formulaunit as a function of energy in eV")
+        return xs # Add return statement here
       if self.ncmat == "FreeGas":
         xs = 0.
         for el, stoy in zip(self.elements, self.stoichiometry):
             scatter_mat = NC.createScatter(f'free_{el}.ncmat')
-            absorb_mat = NC.createAbsorption(f'free_{el}.ncmat') 
-            
+            absorb_mat = NC.createAbsorption(f'free_{el}.ncmat')
+
             scatter_xs = scatter_mat.crossSectionIsotropic(E)
             absorb_xs = absorb_mat.crossSectionIsotropic(E)
-            
+
             total_xs = scatter_xs + absorb_xs
             xs += total_xs * stoy
         return xs
@@ -279,7 +285,7 @@ class Compound():
       """MASS ATTENUATION COEFFICIENT (SIGMA/RHO) OF COMPOUND"""
      #_________________________________________________________#
     def massAttenuationCoefficient(self, E, absorption=True, formulaunit=True, plot=False, help=False):
-        Na=0.602214076 
+        Na=0.602214076
         massAttenuationCoefficient=self.crossSection(E, absorption, formulaunit)*Na/(self.mass)
         if plot:
           plt.xscale("log")
@@ -332,3 +338,8 @@ class Compound():
       Z=-np.log(Transmission)/(self.macroscopicCrossSection(Energy, absorption, formulaunit)) #cm
       if help: print("thickness in cm to obtain given transmission")
       return Z
+    #def save(self, method, E):
+     # s=str(method)
+    #  method_name = lambda s: s[s.index('.') + 1 : s.index('(')] if '.' in s and '(' in s else None
+     # np.savetxt(f'{self.name}_{method_name(s)}.txt', np.column_stack((E*1000,eval(method))))   # !!!
+     # return None
